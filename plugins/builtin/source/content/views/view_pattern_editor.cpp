@@ -25,7 +25,7 @@
 #include <hex/helpers/magic.hpp>
 #include <hex/helpers/binary_pattern.hpp>
 #include <hex/helpers/default_paths.hpp>
-#include <banners/banner_button.hpp>
+#include <banners/multi_banner_button.hpp>
 
 #include <hex/providers/memory_provider.hpp>
 
@@ -225,6 +225,18 @@ namespace hex::plugin::builtin {
             return m_sharedChangeEventAcknowledgementPending;
 
         return m_PPchangeEventAcknowledgementPending.get(provider);
+    }
+    const bool& PatternSourceCode::getChangeEventSuppressAcknowledgement(prv::Provider *provider) const {
+        if (m_synced)
+            return m_sharedChangeEventSuppressAcknowledgement;
+
+        return m_PPchangeEventSuppressAcknowledgement.get(provider);
+    }
+    bool& PatternSourceCode::getChangeEventSuppressAcknowledgement(prv::Provider *provider) {
+        if (m_synced)
+            return m_sharedChangeEventSuppressAcknowledgement;
+
+        return m_PPchangeEventSuppressAcknowledgement.get(provider);
     }
 
     bool PatternSourceCode::hasProviderSpecificSource(prv::Provider* provider) const {
@@ -480,6 +492,12 @@ namespace hex::plugin::builtin {
 
     void ViewPatternEditor::drawContent() {
         auto provider = ImHexApi::Provider::get();
+
+        if (m_sourceCode.getChangeEventAcknowledgementPending(provider) && m_sourceCode.getChangeEventSuppressAcknowledgement(provider)) {
+            m_sourceCode.getChangeEventAcknowledgementPending(provider) = false;
+            auto path = m_sourceCode.getTracker(provider).getPath();
+            loadPatternFile(path, provider, true);
+        }
 
         if (ImHexApi::Provider::isValid() && provider->isAvailable()) {
             const ImGuiContext& g = *ImGui::GetCurrentContext();
@@ -2790,12 +2808,28 @@ namespace hex::plugin::builtin {
         }
 
         m_sourceCode.getChangeEventAcknowledgementPending(provider) = true;
-        hex::ui::BannerButton::open(ICON_VS_INFO, "hex.builtin.provider.file.reload_changes", ImColor(66, 104, 135), "hex.builtin.provider.file.reload_changes.reload", [this, provider] {
-            auto path = m_sourceCode.getTracker(provider).getPath();
-            loadPatternFile(path, provider, true);
-        },[this,provider] {
-            m_sourceCode.getChangeEventAcknowledgementPending(provider) = false;
-        });
+
+        if (m_sourceCode.getChangeEventSuppressAcknowledgement(provider)) {
+            return;
+        }
+
+        hex::ui::MultiBannerButton::open(
+            ICON_VS_INFO, 
+            "hex.builtin.provider.file.reload_changes", 
+            ImColor(66, 104, 135), 
+            std::vector<UnlocalizedString> {"hex.builtin.provider.file.reload_changes.reload", "hex.builtin.view.pattern_editor.always_reload"}, 
+            std::vector<std::function<void()>> {
+                [this, provider] {
+                    auto path = m_sourceCode.getTracker(provider).getPath();
+                    loadPatternFile(path, provider, true);
+                }, [this, provider] {
+                    m_sourceCode.getChangeEventSuppressAcknowledgement(provider) = true;
+                    auto path = m_sourceCode.getTracker(provider).getPath();
+                    loadPatternFile(path, provider, true);
+                }
+            }, [this,provider] {
+                m_sourceCode.getChangeEventAcknowledgementPending(provider) = false;
+            });
     }
 
     void ViewPatternEditor::openPatternFile(bool trackFile) {

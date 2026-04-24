@@ -1030,6 +1030,7 @@
     "hex.builtin.view.pattern_editor.auto": "Auto evaluate",
     "hex.builtin.view.pattern_editor.breakpoint_hit": "Halted at line {0}",
     "hex.builtin.view.pattern_editor.conflict_resolution": "The external pattern file '{}' has been modified.\nYou also have unsaved changes in the internal editor.\nDo you want to reload the file and lose your internal changes?",
+    "hex.builtin.view.pattern_editor.always_reload": "Always",
     "hex.builtin.view.pattern_editor.console": "Console",
     "hex.builtin.view.pattern_editor.console.shortcut.copy": "Copy",
     "hex.builtin.view.pattern_editor.dangerous_function.desc": "This pattern tried to call a dangerous function.\nAre you sure you want to trust this pattern?",

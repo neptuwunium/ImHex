@@ -27,6 +27,8 @@ namespace hex::plugin::builtin {
         bool& getIgnoreNextChangeEvent(prv::Provider *provider);
         const bool& getChangeEventAcknowledgementPending(prv::Provider *provider) const;
         bool& getChangeEventAcknowledgementPending(prv::Provider *provider);
+        const bool& getChangeEventSuppressAcknowledgement(prv::Provider *provider) const;
+        bool& getChangeEventSuppressAcknowledgement(prv::Provider *provider);
         [[nodiscard]] bool hasProviderSpecificSource(prv::Provider *provider) const;
 
         [[nodiscard]] bool isSynced() const;
@@ -39,9 +41,11 @@ namespace hex::plugin::builtin {
         PerProvider<wolv::io::ChangeTracker> m_PPchangeTracker;
         PerProvider<bool> m_PPignoreNextChangeEvent;
         PerProvider<bool> m_PPchangeEventAcknowledgementPending;
+        PerProvider<bool> m_PPchangeEventSuppressAcknowledgement;
         wolv::io::ChangeTracker m_sharedChangeTracker;
         bool m_sharedIgnoreNextChangeEvent = false;
         bool m_sharedChangeEventAcknowledgementPending = false;
+        bool m_sharedChangeEventSuppressAcknowledgement = false;
     };
 
     using IdentifierHighlighter = hex::plugin::builtin::IdentifierHighlighter;
