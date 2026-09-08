@@ -1399,11 +1399,31 @@ namespace hex::plugin::builtin {
                                 m_hasUnparsedChanges.get(provider) = true;
                             }
                         } else if (!variable.cases.empty() && variable.type == pl::core::Token::ValueType::CustomType) {
-                            const auto lastValue = hex::get_or<std::string>(variable.value.value_or(variable.cases[0]) , "");
+                            std::string lastValue;
+                            if (const auto variableValue = variable.value) {
+                                lastValue = hex::get_or<std::string>(*variableValue, "");
+                            }
+
                             if (ImGui::BeginCombo(label.c_str(), lastValue.c_str(), ImGuiComboFlags_None)) {
+                                auto lastWasSelected = lastValue.empty();
+                                // very loud!! illegal variable characters so it does not accidentally collide
+                                if (ImGui::Selectable("##LABEL_EMPTY!!", lastWasSelected, ImGuiMultiSelectFlags_SingleSelect)) {
+                                    variable.value = std::nullopt;
+                                    m_hasUnparsedChanges.get(provider) = true;
+                                }
+
+                                if (lastWasSelected) {
+                                    ImGui::SetItemDefaultFocus();
+                                }
+
                                 for (const auto& enumCase : variable.cases) {
-                                    if (!ImGui::Selectable(enumCase.c_str(), enumCase == lastValue)) {
+                                    lastWasSelected = enumCase == lastValue;
+                                    if (!ImGui::Selectable(enumCase.c_str(), lastWasSelected, ImGuiMultiSelectFlags_SingleSelect)) {
                                         continue;
+                                    }
+
+                                    if (lastWasSelected) {
+                                        ImGui::SetItemDefaultFocus();
                                     }
 
                                     variable.value = enumCase;
