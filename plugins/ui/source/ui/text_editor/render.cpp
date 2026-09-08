@@ -1682,9 +1682,10 @@ namespace hex::ui {
 
         ErrorMarkers::iterator errorIt;
         auto errorHoverBoxKey = lineStart + Coordinates(1, 1);
-        if (errorIt = std::find_if(m_lines.m_errorMarkers.begin(), m_lines.m_errorMarkers.end(), [&](const auto &item) {
+        auto errorMarkers = m_lines.m_errorMarkers; // copy so lines can't be deleted mid flight
+        if (errorIt = std::find_if(errorMarkers.begin(), errorMarkers.end(), [&](const auto &item) {
                 return item.first >= errorHoverBoxKey && item.first <= errorHoverBoxKey + Coordinates(0, tokenLength);
-            }); errorIt != m_lines.m_errorMarkers.end()) {
+            }); errorIt != errorMarkers.end()) {
             auto errorMessage = errorIt->second.second;
             auto errorLength = errorIt->second.first;
             if (errorLength == 0 && line.size() > (u32) i + 1)
