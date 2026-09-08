@@ -223,7 +223,7 @@ namespace hex::plugin::builtin {
                   return FileBackedProviderData<std::string>::SerializedData(formattedSource.begin(), formattedSource.end());
               },
               .decode = [](std::span<const u8> data) -> std::optional<std::string> {
-                  return wolv::util::preprocessText(std::string(data.begin(), data.end()));
+                  return preprocessPattern(std::string(data.begin(), data.end()));
               }
           }) { }
 
@@ -263,6 +263,7 @@ namespace hex::plugin::builtin {
     ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.save_tabs"> PatternSourceCode::m_formattingSaveTabs = false;
     ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.trim_whitespace"> PatternSourceCode::m_formattingTrimWhitespace = false;
     ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.final_newline"> PatternSourceCode::m_formattingFinalNewline = false;
+    ContentRegistry::Settings::SettingsVariable<int, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.tab_size"> PatternSourceCode::m_tabSize = 4;
 
     [[nodiscard]] std::string PatternSourceCode::formatPattern(const std::string &code) {
         const auto shouldConvertToTabs = m_formattingSaveTabs.get();
@@ -275,7 +276,7 @@ namespace hex::plugin::builtin {
         auto formattedCode = code;
 
         if (shouldConvertToTabs) { // spaces -> tabs
-            formattedCode = wolv::util::replaceSpacesWithTabs(code, 4, trimWhitespace);
+            formattedCode = wolv::util::replaceSpacesWithTabs(code, m_tabSize.get(), trimWhitespace);
         }
 
         if (insertFinalNewline && !formattedCode.ends_with('\n')) {
@@ -283,6 +284,11 @@ namespace hex::plugin::builtin {
         }
 
         return formattedCode;
+    }
+
+    [[nodiscard]] std::string PatternSourceCode::preprocessPattern(const std::string &code) {
+        // todo: trim trailing whitespace, move this somewhere ui can use it as well
+        return wolv::util::preprocessText(code, m_tabSize.get());
     }
 
     static const ui::TextEditor::LanguageDefinition &PatternLanguage() {
@@ -1813,7 +1819,7 @@ namespace hex::plugin::builtin {
             if (!file.isValid())
                 return;
 
-            code = wolv::util::preprocessText(file.readString());
+            code = PatternSourceCode::preprocessPattern(file.readString());
             m_sourceCode.set(provider, code);
         }
 
@@ -2043,7 +2049,7 @@ namespace hex::plugin::builtin {
             if (provider == nullptr)
                 return;
 
-            m_textEditor.get(provider).setText(wolv::util::preprocessText(code));
+            m_textEditor.get(provider).setText(PatternSourceCode::preprocessPattern(code));
             m_sourceCode.set(provider, m_textEditor.get(provider).getText());
             if (m_sourceCode.getBinding(provider).has_value()) {
                 auto path = m_sourceCode.getBinding(provider)->string();
@@ -2092,7 +2098,7 @@ namespace hex::plugin::builtin {
         EventProviderOpened::subscribe(this, [this](prv::Provider *provider) {
             m_textEditor.get(provider).setLanguageDefinition(PatternLanguage());
             m_textEditor.get(provider).setCursorPosition(ui::TextEditor::Coordinates(0, 0),false,false);
-            m_textEditor.get(provider).setTabSize(m_tabSize);
+            m_textEditor.get(provider).setTabSize(PatternSourceCode::m_tabSize);
             m_textEditor.get(provider).setEnableHighlighting(m_colorizeSyntax);
             m_textEditor.get(provider).setShowWhitespaces(m_showWhiteSpaces);
             m_textEditor.get(provider).setDisableCodeFolds(m_codeFoldsDisabled);
@@ -2131,10 +2137,10 @@ namespace hex::plugin::builtin {
             }
 
             if (newProvider != nullptr) {
-                m_textEditor.get(newProvider).setText(wolv::util::preprocessText(m_sourceCode.get(newProvider)));
+                m_textEditor.get(newProvider).setText(PatternSourceCode::preprocessPattern(m_sourceCode.get(newProvider)));
                 m_textEditor.get(newProvider).getLines().setScroll(m_scroll.get(newProvider));
                 m_textEditor.get(newProvider).setTextChanged(false);
-                m_textEditor.get(newProvider).setTabSize(m_tabSize);
+                m_textEditor.get(newProvider).setTabSize(PatternSourceCode::m_tabSize);
                 m_textEditor.get(newProvider).setEnableHighlighting(m_colorizeSyntax);
                 m_textEditor.get(newProvider).setShowWhitespaces(m_showWhiteSpaces);
                 m_textEditor.get(newProvider).setDisableCodeFolds(m_codeFoldsDisabled);
@@ -2486,7 +2492,7 @@ namespace hex::plugin::builtin {
                 return false;
 
             if (file.isValid()) {
-                RequestSetPatternLanguageCode::post(wolv::util::preprocessText(file.readString()));
+                RequestSetPatternLanguageCode::post(PatternSourceCode::preprocessPattern(file.readString()));
                 return true;
             } else {
                 return false;

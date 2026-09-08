@@ -32,12 +32,14 @@ namespace hex::plugin::builtin {
         void setChangedCallback(std::function<void(prv::Provider *)> callback);
         [[nodiscard]] bool hasProviderSpecificSource(prv::Provider *provider) const;
         [[nodiscard]] static std::string formatPattern(const std::string &);
+        [[nodiscard]] static std::string preprocessPattern(const std::string &);
 
-    private:
         static ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.save_tabs"> m_formattingSaveTabs;
         static ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.trim_whitespace"> m_formattingTrimWhitespace;
         static ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.final_newline"> m_formattingFinalNewline;
+        static ContentRegistry::Settings::SettingsVariable<int, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.tab_size"> m_tabSize;
 
+    private:
         FileBackedProviderData<std::string> m_perProviderSource;
     };
 
@@ -128,7 +130,6 @@ namespace hex::plugin::builtin {
         ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.general", "hex.builtin.setting.general.suggest_patterns"> m_suggestSupportedPatterns = true;
         ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.general", "hex.builtin.setting.general.search_patterns_online"> m_searchPatternsOnline = true;
         ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.general", "hex.builtin.setting.general.auto_apply_patterns"> m_autoApplyPatterns = false;
-        ContentRegistry::Settings::SettingsVariable<int, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.tab_size"> m_tabSize = 4;
         ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.show_white_spaces"> m_showWhiteSpaces = false;
         ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.disable_folds"> m_codeFoldsDisabled = false;
         ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.syntactic_highlighting"> m_colorizeSyntax = true;

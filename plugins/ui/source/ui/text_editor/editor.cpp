@@ -86,8 +86,8 @@ namespace hex::ui {
         m_textChanged = true;
     }
 
-    void Lines::appendLine(const std::string &value) {
-        auto text = wolv::util::replaceStrings(wolv::util::preprocessText(value), "\000", ".");
+    void Lines::appendLine(const std::string &value, u32 tabSize) {
+        auto text = wolv::util::replaceStrings(wolv::util::preprocessText(value, tabSize), "\000", ".");
         if (text.empty())
             return;
         auto maxColumn = stringCharacterCount(text);
@@ -104,7 +104,7 @@ namespace hex::ui {
     }
 
     void TextEditor::appendLine(const std::string &value) {
-       m_lines.appendLine(value);
+        m_lines.appendLine(value, getTabSize());
         m_lines.setCursorPosition(m_lines.lineCoordinates(m_lines.size() - 1, 0), false);
         m_lines.m_unfoldedLines.back().m_colorized = false;
         m_lines.ensureCursorVisible();
@@ -825,7 +825,7 @@ namespace hex::ui {
     void TextEditor::doPaste(const char *clipText) {
         UndoRecord u;
         if (clipText != nullptr) {
-            auto clipTextStr = wolv::util::preprocessText(clipText);
+            auto clipTextStr = wolv::util::preprocessText(clipText, getTabSize());
 
             u.m_before = m_lines.m_state;
 
