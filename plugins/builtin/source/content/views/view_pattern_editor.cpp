@@ -219,7 +219,8 @@ namespace hex::plugin::builtin {
               .displayIcon = ICON_VS_FILE_CODE,
               .extensions = { { "Pattern File", "hexpat" }, { "Pattern Import File", "pat" } },
               .encode = [](const std::string &source) {
-                  return FileBackedProviderData<std::string>::SerializedData(source.begin(), source.end());
+                  const auto formattedSource = formatPattern(source);
+                  return FileBackedProviderData<std::string>::SerializedData(formattedSource.begin(), formattedSource.end());
               },
               .decode = [](std::span<const u8> data) -> std::optional<std::string> {
                   return wolv::util::preprocessText(std::string(data.begin(), data.end()));
@@ -257,6 +258,31 @@ namespace hex::plugin::builtin {
 
     bool PatternSourceCode::hasProviderSpecificSource(prv::Provider* provider) const {
         return !m_perProviderSource.get(provider).empty();
+    }
+
+    ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.save_tabs"> PatternSourceCode::m_formattingSaveTabs = false;
+    ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.trim_whitespace"> PatternSourceCode::m_formattingTrimWhitespace = false;
+    ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.final_newline"> PatternSourceCode::m_formattingFinalNewline = false;
+
+    [[nodiscard]] std::string PatternSourceCode::formatPattern(const std::string &code) {
+        const auto shouldConvertToTabs = m_formattingSaveTabs.get();
+        const auto trimWhitespace = m_formattingTrimWhitespace.get();
+        const auto insertFinalNewline = m_formattingFinalNewline.get();
+        if (!shouldConvertToTabs && !trimWhitespace && !insertFinalNewline) {
+            return code;
+        }
+
+        auto formattedCode = code;
+
+        if (shouldConvertToTabs) { // spaces -> tabs
+            formattedCode = wolv::util::replaceSpacesWithTabs(code, 4, trimWhitespace);
+        }
+
+        if (insertFinalNewline && !formattedCode.ends_with('\n')) {
+            formattedCode += '\n';
+        }
+
+        return formattedCode;
     }
 
     static const ui::TextEditor::LanguageDefinition &PatternLanguage() {

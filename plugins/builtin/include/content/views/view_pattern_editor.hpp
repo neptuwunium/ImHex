@@ -31,8 +31,13 @@ namespace hex::plugin::builtin {
         [[nodiscard]] bool hasPendingData(prv::Provider *provider) const;
         void setChangedCallback(std::function<void(prv::Provider *)> callback);
         [[nodiscard]] bool hasProviderSpecificSource(prv::Provider *provider) const;
+        [[nodiscard]] static std::string formatPattern(const std::string &);
 
     private:
+        static ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.save_tabs"> m_formattingSaveTabs;
+        static ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.trim_whitespace"> m_formattingTrimWhitespace;
+        static ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.final_newline"> m_formattingFinalNewline;
+
         FileBackedProviderData<std::string> m_perProviderSource;
     };
 
