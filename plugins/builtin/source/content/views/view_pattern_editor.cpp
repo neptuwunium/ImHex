@@ -1776,20 +1776,17 @@ namespace hex::plugin::builtin {
         ImGui::PopID();
     }
 
-
     void ViewPatternEditor::loadPatternFile(const std::fs::path &path, prv::Provider *provider, bool trackFile) {
-        wolv::io::File file(path, wolv::io::File::Mode::Write);
-        if (!file.isValid())
-            return;
-        auto code = wolv::util::preprocessText(file.readString());
-        file.writeString(code);
-        file.flush();
-
+        std::string code;
         if (trackFile) {
             if (!m_sourceCode.bind(provider, path))
                 return;
             code = m_sourceCode.get(provider);
         } else {
+            wolv::io::File file(path, wolv::io::File::Mode::Read);
+            if (!file.isValid())
+                return;
+
             code = wolv::util::preprocessText(file.readString());
             m_sourceCode.set(provider, code);
         }
