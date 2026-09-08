@@ -20,6 +20,7 @@
 #include <pl/core/lexer.hpp>
 #include <pl/core/ast/ast_node_variable_decl.hpp>
 #include <pl/core/ast/ast_node_builtin_type.hpp>
+#include <pl/core/ast/ast_node_enum.hpp>
 
 
 #include <hex/helpers/fs.hpp>
@@ -1397,6 +1398,20 @@ namespace hex::plugin::builtin {
                                     variable.value = buffer;
                                 m_hasUnparsedChanges.get(provider) = true;
                             }
+                        } else if (!variable.cases.empty() && variable.type == pl::core::Token::ValueType::CustomType) {
+                            const auto lastValue = hex::get_or<std::string>(variable.value.value_or(variable.cases[0]) , "");
+                            if (ImGui::BeginCombo(label.c_str(), lastValue.c_str(), ImGuiComboFlags_None)) {
+                                for (const auto& enumCase : variable.cases) {
+                                    if (!ImGui::Selectable(enumCase.c_str(), enumCase == lastValue)) {
+                                        continue;
+                                    }
+
+                                    variable.value = enumCase;
+                                    m_hasUnparsedChanges.get(provider) = true;
+                                }
+
+                                ImGui::EndCombo();
+                            }
                         }
                     }
                     ImGui::PopItemWidth();
@@ -1838,16 +1853,30 @@ namespace hex::plugin::builtin {
                     const auto type = variableDecl->getType().get();
                     if (type == nullptr) continue;
 
-                    const auto builtinType = dynamic_cast<pl::core::ast::ASTNodeBuiltinType *>(type->getType().get());
-                    if (builtinType == nullptr)
-                        continue;
 
-                    const PatternVariable variable = {
+                    PatternVariable variable = {
                         .inVariable  = variableDecl->isInVariable(),
                         .outVariable = variableDecl->isOutVariable(),
-                        .type        = builtinType->getType(),
-                        .value       = oldPatternVariables.contains(variableDecl->getName()) ? oldPatternVariables[variableDecl->getName()].value : std::nullopt
+                        .type        = pl::core::Token::ValueType::CustomType,
+                        .value       = std::nullopt,
+                        .cases       = {},
                     };
+
+                    if (const auto builtinType = dynamic_cast<pl::core::ast::ASTNodeBuiltinType *>(type->getType().get()); builtinType != nullptr) {
+                        variable.type = builtinType->getType();
+                    } else if (const auto typeDecl = dynamic_cast<pl::core::ast::ASTNodeTypeDecl*>(type->getType().get()); typeDecl != nullptr) {
+                        const auto enumDecl = dynamic_cast<pl::core::ast::ASTNodeEnum*>(typeDecl->getType().get());
+
+                        if (enumDecl == nullptr) {
+                            continue;
+                        }
+
+                        variable.cases.append_range(enumDecl->getEntries() | std::views::keys);
+                    } else {
+                        continue;
+                    }
+
+                    variable.value = oldPatternVariables.contains(variableDecl->getName()) ? oldPatternVariables[variableDecl->getName()].value : std::nullopt;
 
                     if (variable.inVariable || variable.outVariable) {
                         if (!patternVariables.contains(variableDecl->getName()))
