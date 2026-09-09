@@ -654,7 +654,7 @@ namespace hex::ui {
             Range lineCoordinates(const Range &value);
             friend bool Range::Coordinates::isValid(Lines &lines);
             friend TextEditor::Coordinates Range::Coordinates::sanitize(Lines &lines);
-            void appendLine(const std::string &value, u32 tabSize);
+            void appendLine(const std::string &value);
             void setSelection(const Range &selection);
             Range getSelection() const;
             ImVec2 getLineStartScreenPos(float leftMargin, float lineNumber);

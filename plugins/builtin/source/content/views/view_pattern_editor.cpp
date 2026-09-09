@@ -50,6 +50,7 @@
 #include <hex/api/events/requests_gui.hpp>
 #include <hex/helpers/menu_items.hpp>
 #include <hex/helpers/logger.hpp>
+#include <hex/helpers/formatting.hpp>
 #include <content/text_highlighting/pattern_language.hpp>
 
 #include <fmt/chrono.h>
@@ -218,12 +219,14 @@ namespace hex::plugin::builtin {
               .displayName = "hex.builtin.view.pattern_editor.name"_unlocalized,
               .displayIcon = ICON_VS_FILE_CODE,
               .extensions = { { "Pattern File", "hexpat" }, { "Pattern Import File", "pat" } },
-              .encode = [](const std::string &source) {
-                  const auto formattedSource = formatPattern(source);
+              .encode = [this](const std::string &source) {
+                  // do this here so it's not called every .get() and .set()
+                  const auto formattedSource = formatPattern(source, m_tabSize);
                   return FileBackedProviderData<std::string>::SerializedData(formattedSource.begin(), formattedSource.end());
               },
-              .decode = [](std::span<const u8> data) -> std::optional<std::string> {
-                  return preprocessPattern(std::string(data.begin(), data.end()));
+              .decode = [this](std::span<const u8> data) -> std::optional<std::string> {
+                  // do this here so it's not called every .get() and .set()
+                  return preprocessPattern(std::string(data.begin(), data.end()), m_tabSize);
               }
           }) { }
 
@@ -260,35 +263,8 @@ namespace hex::plugin::builtin {
         return !m_perProviderSource.get(provider).empty();
     }
 
-    ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.save_tabs"> PatternSourceCode::m_formattingSaveTabs = false;
-    ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.trim_whitespace"> PatternSourceCode::m_formattingTrimWhitespace = false;
-    ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.final_newline"> PatternSourceCode::m_formattingFinalNewline = false;
-    ContentRegistry::Settings::SettingsVariable<int, "hex.builtin.setting.pattern_editor", "hex.builtin.setting.pattern_editor.tab_size"> PatternSourceCode::m_tabSize = 4;
-
-    [[nodiscard]] std::string PatternSourceCode::formatPattern(const std::string &code) {
-        const auto shouldConvertToTabs = m_formattingSaveTabs.get();
-        const auto trimWhitespace = m_formattingTrimWhitespace.get();
-        const auto insertFinalNewline = m_formattingFinalNewline.get();
-        if (!shouldConvertToTabs && !trimWhitespace && !insertFinalNewline) {
-            return code;
-        }
-
-        auto formattedCode = code;
-
-        if (shouldConvertToTabs) { // spaces -> tabs
-            formattedCode = wolv::util::replaceSpacesWithTabs(code, m_tabSize.get(), trimWhitespace);
-        }
-
-        if (insertFinalNewline && !formattedCode.ends_with('\n')) {
-            formattedCode += '\n';
-        }
-
-        return formattedCode;
-    }
-
-    [[nodiscard]] std::string PatternSourceCode::preprocessPattern(const std::string &code) {
-        // todo: trim trailing whitespace, move this somewhere ui can use it as well
-        return wolv::util::preprocessText(code, m_tabSize.get());
+    void PatternSourceCode::setTabSize(i32 value) {
+        m_tabSize = std::max(0, std::min(32, value));
     }
 
     static const ui::TextEditor::LanguageDefinition &PatternLanguage() {
@@ -1819,7 +1795,7 @@ namespace hex::plugin::builtin {
             if (!file.isValid())
                 return;
 
-            code = PatternSourceCode::preprocessPattern(file.readString());
+            code = preprocessPattern(file.readString(), m_textEditor.get(provider).getTabSize());
             m_sourceCode.set(provider, code);
         }
 
@@ -2049,7 +2025,7 @@ namespace hex::plugin::builtin {
             if (provider == nullptr)
                 return;
 
-            m_textEditor.get(provider).setText(PatternSourceCode::preprocessPattern(code));
+            m_textEditor.get(provider).setText(preprocessPattern(code, m_textEditor.get(provider).getTabSize()));
             m_sourceCode.set(provider, m_textEditor.get(provider).getText());
             if (m_sourceCode.getBinding(provider).has_value()) {
                 auto path = m_sourceCode.getBinding(provider)->string();
@@ -2061,8 +2037,11 @@ namespace hex::plugin::builtin {
         });
 
         ContentRegistry::Settings::onChange("hex.builtin.setting.pattern_editor"_unlocalized, "hex.builtin.setting.pattern_editor.tab_size"_unlocalized, [this](const ContentRegistry::Settings::SettingsValue &value) {
-            if (ImHexApi::Provider::isValid())
-                m_textEditor.get(ImHexApi::Provider::get()).setTabSize(value.get<u32>(4));
+            if (ImHexApi::Provider::isValid()) {
+                const auto tabSize = value.get<u32>(4);
+                m_sourceCode.setTabSize(tabSize);
+                m_textEditor.get(ImHexApi::Provider::get()).setTabSize(tabSize);
+            }
         });
 
         ContentRegistry::Settings::onChange("hex.builtin.setting.pattern_editor"_unlocalized, "hex.builtin.setting.pattern_editor.auto_indent"_unlocalized, [this](const ContentRegistry::Settings::SettingsValue &value) {
@@ -2096,9 +2075,10 @@ namespace hex::plugin::builtin {
         });
 
         EventProviderOpened::subscribe(this, [this](prv::Provider *provider) {
+            m_sourceCode.setTabSize(m_tabSize);
+            m_textEditor.get(provider).setTabSize(m_tabSize);
             m_textEditor.get(provider).setLanguageDefinition(PatternLanguage());
             m_textEditor.get(provider).setCursorPosition(ui::TextEditor::Coordinates(0, 0),false,false);
-            m_textEditor.get(provider).setTabSize(PatternSourceCode::m_tabSize);
             m_textEditor.get(provider).setEnableHighlighting(m_colorizeSyntax);
             m_textEditor.get(provider).setShowWhitespaces(m_showWhiteSpaces);
             m_textEditor.get(provider).setDisableCodeFolds(m_codeFoldsDisabled);
@@ -2137,10 +2117,11 @@ namespace hex::plugin::builtin {
             }
 
             if (newProvider != nullptr) {
-                m_textEditor.get(newProvider).setText(PatternSourceCode::preprocessPattern(m_sourceCode.get(newProvider)));
+                m_sourceCode.setTabSize(m_tabSize);
+                m_textEditor.get(newProvider).setTabSize(m_tabSize);
+                m_textEditor.get(newProvider).setText(preprocessPattern(m_sourceCode.get(newProvider), m_tabSize));
                 m_textEditor.get(newProvider).getLines().setScroll(m_scroll.get(newProvider));
                 m_textEditor.get(newProvider).setTextChanged(false);
-                m_textEditor.get(newProvider).setTabSize(PatternSourceCode::m_tabSize);
                 m_textEditor.get(newProvider).setEnableHighlighting(m_colorizeSyntax);
                 m_textEditor.get(newProvider).setShowWhitespaces(m_showWhiteSpaces);
                 m_textEditor.get(newProvider).setDisableCodeFolds(m_codeFoldsDisabled);
@@ -2492,7 +2473,7 @@ namespace hex::plugin::builtin {
                 return false;
 
             if (file.isValid()) {
-                RequestSetPatternLanguageCode::post(PatternSourceCode::preprocessPattern(file.readString()));
+                RequestSetPatternLanguageCode::post(file.readString());
                 return true;
             } else {
                 return false;
