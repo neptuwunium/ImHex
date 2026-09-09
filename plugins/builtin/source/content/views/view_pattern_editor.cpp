@@ -2037,9 +2037,9 @@ namespace hex::plugin::builtin {
         });
 
         ContentRegistry::Settings::onChange("hex.builtin.setting.pattern_editor"_unlocalized, "hex.builtin.setting.pattern_editor.tab_size"_unlocalized, [this](const ContentRegistry::Settings::SettingsValue &value) {
+            const auto tabSize = value.get<u32>(4);
+            m_sourceCode.setTabSize(tabSize);
             if (ImHexApi::Provider::isValid()) {
-                const auto tabSize = value.get<u32>(4);
-                m_sourceCode.setTabSize(tabSize);
                 m_textEditor.get(ImHexApi::Provider::get()).setTabSize(tabSize);
             }
         });
