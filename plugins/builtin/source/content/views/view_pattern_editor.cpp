@@ -1406,11 +1406,15 @@ namespace hex::plugin::builtin {
 
                             if (ImGui::BeginCombo(label.c_str(), lastValue.c_str(), ImGuiComboFlags_None)) {
                                 auto lastWasSelected = lastValue.empty();
+                                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
                                 // very loud!! illegal variable characters so it does not accidentally collide
-                                if (ImGui::Selectable("##LABEL_EMPTY!!", lastWasSelected, ImGuiMultiSelectFlags_SingleSelect)) {
+                                ImGui::PushID("##DefaultLabel!!");
+                                if (ImGui::Selectable("hex.builtin.view.pattern_editor.in_default_value"_lang, lastWasSelected, ImGuiMultiSelectFlags_SingleSelect)) {
                                     variable.value = std::nullopt;
                                     m_hasUnparsedChanges.get(provider) = true;
                                 }
+                                ImGui::PopID();
+                                ImGui::PopStyleColor();
 
                                 if (lastWasSelected) {
                                     ImGui::SetItemDefaultFocus();
