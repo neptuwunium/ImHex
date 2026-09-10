@@ -1399,39 +1399,47 @@ namespace hex::plugin::builtin {
                                 m_hasUnparsedChanges.get(provider) = true;
                             }
                         } else if (!variable.cases.empty() && variable.type == pl::core::Token::ValueType::CustomType) {
-                            std::string lastValue;
-                            if (const auto variableValue = variable.value) {
-                                lastValue = hex::get_or<std::string>(*variableValue, "");
+                            const auto variableValue = variable.value ? hex::get_or<std::string>(*variable.value, "") : "";
+                            const bool isDefaultSelected = variableValue.empty();
+
+                            const char* defaultLabel = "hex.builtin.view.pattern_editor.in_default_value"_lang;
+                            const char* previewText  = isDefaultSelected ? defaultLabel : variableValue.c_str();
+
+                            if (isDefaultSelected) {
+                                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
                             }
 
-                            if (ImGui::BeginCombo(label.c_str(), lastValue.c_str(), ImGuiComboFlags_None)) {
-                                auto lastWasSelected = lastValue.empty();
-                                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                                // very loud!! illegal variable characters so it does not accidentally collide
+                            const bool isOpen = ImGui::BeginCombo(label.c_str(), previewText);
+
+                            if (isDefaultSelected) {
+                                ImGui::PopStyleColor();
+                            }
+
+                            if (isOpen) {
                                 ImGui::PushID("##DefaultLabel!!");
-                                if (ImGui::Selectable("hex.builtin.view.pattern_editor.in_default_value"_lang, lastWasSelected, ImGuiMultiSelectFlags_SingleSelect)) {
+                                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                                if (ImGui::Selectable(defaultLabel, isDefaultSelected)) {
                                     variable.value = std::nullopt;
                                     m_hasUnparsedChanges.get(provider) = true;
                                 }
-                                ImGui::PopID();
                                 ImGui::PopStyleColor();
+                                ImGui::PopID();
 
-                                if (lastWasSelected) {
+                                if (isDefaultSelected) {
                                     ImGui::SetItemDefaultFocus();
                                 }
 
                                 for (const auto& enumCase : variable.cases) {
-                                    lastWasSelected = enumCase == lastValue;
-                                    if (!ImGui::Selectable(enumCase.c_str(), lastWasSelected, ImGuiMultiSelectFlags_SingleSelect)) {
-                                        continue;
+                                    const bool isSelected = enumCase == variableValue;
+
+                                    if (ImGui::Selectable(enumCase.c_str(), isSelected)) {
+                                        variable.value = enumCase;
+                                        m_hasUnparsedChanges.get(provider) = true;
                                     }
 
-                                    if (lastWasSelected) {
+                                    if (isSelected) {
                                         ImGui::SetItemDefaultFocus();
                                     }
-
-                                    variable.value = enumCase;
-                                    m_hasUnparsedChanges.get(provider) = true;
                                 }
 
                                 ImGui::EndCombo();
