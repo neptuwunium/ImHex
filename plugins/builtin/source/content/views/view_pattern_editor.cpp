@@ -1874,9 +1874,10 @@ namespace hex::plugin::builtin {
         if (ast.has_value()) {
             for (auto &node : *ast) {
                 if (const auto variableDecl = dynamic_cast<pl::core::ast::ASTNodeVariableDecl *>(node.get())) {
-                    const auto type = variableDecl->getType().get();
-                    if (type == nullptr) continue;
-
+                    auto type = variableDecl->getType();
+                    if (type == nullptr) {
+                        continue;
+                    }
 
                     PatternVariable variable = {
                         .inVariable  = variableDecl->isInVariable(),
@@ -1886,18 +1887,47 @@ namespace hex::plugin::builtin {
                         .cases       = {},
                     };
 
-                    if (const auto builtinType = dynamic_cast<pl::core::ast::ASTNodeBuiltinType *>(type->getType().get()); builtinType != nullptr) {
-                        variable.type = builtinType->getType();
-                    } else if (const auto typeDecl = dynamic_cast<pl::core::ast::ASTNodeTypeDecl*>(type->getType().get()); typeDecl != nullptr) {
-                        const auto enumDecl = dynamic_cast<pl::core::ast::ASTNodeEnum*>(typeDecl->getType().get());
+                    auto declNestLimit = 128; // some high value so infinite recursion breaks
+                    while (type && declNestLimit-- > 0) {
+                        auto checkType = type->getType();
 
-                        if (enumDecl == nullptr) {
+                        if (const auto typeDecl = std::dynamic_pointer_cast<pl::core::ast::ASTNodeTypeDecl>(checkType); typeDecl != nullptr) {
+                            checkType = typeDecl->getType();
+                        }
+
+                        if (const auto usingDecl = std::dynamic_pointer_cast<pl::core::ast::ASTNodeTypeApplication>(checkType); usingDecl != nullptr) {
+                            [[unlikely]] if (type == usingDecl) {
+                                // realistically should never happen but you never know
+                                type = nullptr;
+                                break;
+                            }
+
+                            type = usingDecl;
                             continue;
                         }
 
-                        variable.cases.append_range(enumDecl->getEntries() | std::views::keys);
-                    } else {
-                        continue;
+                        if (const auto enumDecl = dynamic_cast<pl::core::ast::ASTNodeEnum *>(checkType.get()); enumDecl != nullptr) {
+                            if (enumDecl == nullptr) {
+                                type = nullptr;
+                                break;
+                            }
+
+                            variable.cases.append_range(enumDecl->getEntries() | std::views::keys);
+                            break;
+                        }
+
+
+                        if (const auto builtinType = dynamic_cast<pl::core::ast::ASTNodeBuiltinType *>(checkType.get()); builtinType != nullptr) {
+                            variable.type = builtinType->getType();
+                            break;
+                        }
+
+                        type = nullptr;
+                        break;
+                    }
+
+                    if (type == nullptr || declNestLimit <= 0) {
+                        break;
                     }
 
                     variable.value = oldPatternVariables.contains(variableDecl->getName()) ? oldPatternVariables[variableDecl->getName()].value : std::nullopt;
