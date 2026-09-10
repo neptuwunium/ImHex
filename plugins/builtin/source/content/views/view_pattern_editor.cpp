@@ -1895,7 +1895,7 @@ namespace hex::plugin::builtin {
                         .cases       = {},
                     };
 
-                    auto declNestLimit = 128; // some high value so infinite recursion breaks
+                    i32 declNestLimit = 32; // default evaluation depth
                     while (type && declNestLimit-- > 0) {
                         auto checkType = type->getType();
 
@@ -1904,8 +1904,8 @@ namespace hex::plugin::builtin {
                         }
 
                         if (const auto usingDecl = std::dynamic_pointer_cast<pl::core::ast::ASTNodeTypeApplication>(checkType); usingDecl != nullptr) {
-                            [[unlikely]] if (type == usingDecl) {
-                                // realistically should never happen but you never know
+                            if (type == usingDecl) [[unlikely]] {
+                                // bad case of forward declarations ending up referencing itself
                                 type = nullptr;
                                 break;
                             }
